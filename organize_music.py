@@ -4,13 +4,15 @@ import xml.etree.ElementTree as ET
 from datetime import datetime
 from mutagen.easyid3 import EasyID3
 from mutagen.flac import FLAC
+from mutagen.mp4 import MP4
+from mutagen.oggopus import OggOpus
 from tkinter import Tk
 from tkinter.filedialog import askdirectory
 
 def get_artist(file_path):
     """
     Extract artist metadata from an audio file.
-    Supports .mp3 and .flac formats.
+    Supports .mp3, .flac, .m4a, and .opus formats.
     """
     try:
         if file_path.lower().endswith('.mp3'):
@@ -18,6 +20,12 @@ def get_artist(file_path):
             return audio.get('artist', [None])[0]
         elif file_path.lower().endswith('.flac'):
             audio = FLAC(file_path)
+            return audio.get('artist', [None])[0]
+        elif file_path.lower().endswith('.m4a'):
+            audio = MP4(file_path)
+            return audio.tags.get('\xa9ART', [None])[0]  # MP4 artist tag
+        elif file_path.lower().endswith('.opus'):
+            audio = OggOpus(file_path)
             return audio.get('artist', [None])[0]
     except Exception as e:
         print(f"Error reading {file_path}: {e}")
@@ -34,7 +42,7 @@ def copy_and_organize_music(input_folder, output_folder):
 
     for root, _, files in os.walk(input_folder):
         for file in files:
-            if file.lower().endswith(('.mp3', '.flac')):
+            if file.lower().endswith(('.mp3', '.flac', '.m4a', '.opus')):
                 file_path = os.path.join(root, file)
                 artist = get_artist(file_path)
                 if artist:
