@@ -2,8 +2,9 @@ import os
 import re
 from tkinter import Tk
 from tkinter.filedialog import askdirectory
+import xml.etree.ElementTree as ET
 
-types = ['.m4a', '.mp3', '.flac', '.aac','.wav']
+types = ['.m4a','.mp3','.flac','.aac','.wav','.opus']
 
 def get_music_files(input_folder):
 
@@ -11,35 +12,48 @@ def get_music_files(input_folder):
 
     for (path, directories, files) in os.walk(input_folder):
        for file in files:
-            for type in types:
+            for type in types: #checks extensions in types (iterate as .endswith only accepts one at a time)
                 if file.endswith(type):
-                    file_path = os.path.join(path, file)
-                    music_files.append(file_path)
+                    file_path = os.path.join(path, file) #joins path and filename
+                    music_files.append(file_path) #adds path to music_files list
 
     return music_files
 
 def remove_numbers(music_files):
 
-    pattern1 = r"^[0-9]+ ?- ?"
-    pattern2 = r"^[0-9]"
+    pattern = r"^[0-9]+\s?-?\s?" #looks for leading numbers (0-9) of any length (+) and hyphens after if they exist (? means they are optional)
 
     for file in music_files:
-        filename = os.path.basename(file)
-        number = re.search(pattern1,filename)
-        number2 = re.search(pattern2,filename)
-        if number2:
-            print(filename)
+        path = os.path.dirname(file)
+        file_name = os.path.basename(file)
+        match = re.search(pattern, file_name)
+        if match:
+            new_file_name = re.sub(pattern, '', file_name) #change file_name to one without pattern
+            new_path = os.path.join(path, new_file_name)
+            os.rename(file,new_path)
+            print(f'"{file_name}" CHANGED TO "{new_file_name}"')
 
-def check_for_loose(input_folder):
+    return None
+
+def convert_m3u_to_xml(input_folder):
+
+    m3u_files = []
+    for (path, directories, files) in os.walk(input_folder):
+        for file in files:
+            if file.endswith(".m3u"):
+                m3u_files.append(file)
+        
     return None
 
 def main():
     #Tk().withdraw()  # Hide the main Tkinter window
     #print("Select the folder containing the music files and/or folders:")
     #path = askdirectory(title="Select Folder: ")
-    path = "/Users/calebmueller/Library/CloudStorage/OneDrive-UNBC/Music/ALAC_iPod_Music"
+    path = "/Users/calebmueller/Desktop/TALK"
     music_files = get_music_files(path)
     remove_numbers(music_files)
+    if input("Convert M3U to XML? (Y/N): ") == "Y":
+        convert_m3u_to_xml(path)
 
 if __name__ == "__main__":
     main()
