@@ -1,0 +1,46 @@
+import os
+import re
+from tkinter import Tk
+from tkinter.filedialog import askdirectory
+
+types = ['.m4a', '.mp3', '.flac', '.aac','.wav']
+
+def get_music_files(input_folder):
+
+    music_files = []
+
+    for (path, directories, files) in os.walk(input_folder):
+       for file in files:
+            for type in types:
+                if file.endswith(type):
+                    file_path = os.path.join(path, file)
+                    music_files.append(file_path)
+
+    return music_files
+
+def remove_numbers(music_files):
+
+    pattern1 = r"^[0-9]+ ?- ?"
+    pattern2 = r"^[0-9]"
+
+    for file in music_files:
+        filename = os.path.basename(file)
+        number = re.search(pattern1,filename)
+        number2 = re.search(pattern2,filename)
+        if number2:
+            print(filename)
+
+def check_for_loose(input_folder):
+    return None
+
+def main():
+    #Tk().withdraw()  # Hide the main Tkinter window
+    #print("Select the folder containing the music files and/or folders:")
+    #path = askdirectory(title="Select Folder: ")
+    path = "/Users/calebmueller/Library/CloudStorage/OneDrive-UNBC/Music/ALAC_iPod_Music"
+    music_files = get_music_files(path)
+    remove_numbers(music_files)
+
+if __name__ == "__main__":
+    main()
+
