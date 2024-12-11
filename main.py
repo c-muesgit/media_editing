@@ -10,13 +10,9 @@ from mutagen.mp4 import MP4
 from mutagen.oggopus import OggOpus
 from mutagen.aac import AAC
 
-re_pattern1 = r"^[0-9]+\s?-\s?" #file needs to have "-" after number (spaces don't matter)
-re_pattern2 = r"^[0-9]+\.\s+" #file needs to have "." after number and any number of spaces
-#pattern 2 won't delete songs like "1998.flac" or "7 Years.flac"
+file_types = ['m4a','mp3','flac','aac','wav','opus']
 
-file_types = ['.m4a','.mp3','.flac','.aac','.wav','.opus']
-
-def music_info(input_folder): #makes dictionary of music files in folders and subfolders (gets path, artist, title)
+def get_music(input_folder): #makes dictionary of music files in folders and subfolders (gets path, artist, title)
 
     music_info = {}
     ID = 0
@@ -45,76 +41,94 @@ def music_info(input_folder): #makes dictionary of music files in folders and su
                     except:
                         print(f"Missing info for {file_path}")
 
-                    music_info[ID] = {'file_path':file_path}
+                    music_info[ID] = {'file_path':file_path,\
+                                          'title': title, 'artist':artist, \
+                                            'album':album}
 
-                    if title:
-                        music_info[ID] = {'title': title}
-                    #artist_name = get_artist(file_path)
-                    if artist:
-                        music_info[ID] = {'artist': artist}
-    
-                    if album:
-                        music_info[ID] = {'album': album}
-                    
     return music_info
 
-def remove_artist_names(music_info): #removes artists names from beginning of file if it exists 
+def change_file_names(music_info):
 
-    removed_artists = []
+    #text patterns
+    ext_pattern = r"|".join([re.escape(ext) for ext in file_types])
+    left_pat = r"^" #only matches beginning of file name
+    n_pat = r"[0-9]+" #beginning of leading numbers match
+    n_pat1 = left_pat + n_pat + r"\s?-\s?" #matches numbers with hyphens
+    n_pat2 = left_pat + n_pat + r"\."r"(?!(" + ext_pattern + r")$)" #negative lookahead (?!...) ensures period is not followed by extension
+    n_pat3 = left_pat + n_pat + r"\s?_\s?" #matches numbers with underscores
+    txt_pat = r"\s?-?_?\s?" #matches with hypen or underscore
+
+    if input("Remove leading numbers from files (Y/N): ") == "Y" or "y":
+        remove_leading_numbers(music_info,n_pat1,n_pat2,n_pat3)
+    else:
+        None
+    if input("Remove artist names from files (Y/N): ") == "Y" or "y":
+        remove_artist_names(music_info,txt_pat)
+    else:
+        None
+    if input("Remove album names from files (Y/N): ") == "Y" or "y":
+        remove_album_names(music_info,txt_pat)
+    else:
+        None
+
+def remove_artist_names(music_info,txt_pat): #removes artists names from beginning of file if it exists 
+
+    changed_artist_files = []
+    txt_name = "artists"
 
     for ID, info in music_info.items():
         full_path = info['file_path']
-        path_to_file = os.path.dirname(full_path)
-        file_name = os.path.basename(full_path)
-
+        path_to_file,file_name = os.path.dirname(full_path),os.path.basename(full_path)
         re_artist = info['artist']
-        re_artist = r"^" + re_artist + r"\s?-?_?\s?"
+        re_artist = re_artist + txt_pat
         match = re.search(re_artist, file_name)
+
         if match:
             new_file_name = re.sub(re_artist, '', file_name) #change file_name to one without pattern
             new_path = os.path.join(path_to_file, new_file_name)
             os.rename(full_path,new_path)
             print(f'"{file_name}" CHANGED TO "{new_file_name}"')
-            removed_artists.append(new_file_name)
+            changed_artist_files.append(f'{file_name} -->\n{new_file_name}\n')
+    
     try:
-        removed_artists_txt = open('removed_artists.txt', 'x')
+        removed_artists_txt = open(f'removed_{txt_name}.txt', 'x')
     except:
-        removed_artists_txt = open('removed_artists.txt', 'w')
+        removed_artists_txt = open(f'removed_{txt_name}.txt', 'w')
 
-    for l in removed_artists:
+    for l in changed_artist_files:
         removed_artists_txt.write(f'{l}\n')
     
     removed_artists_txt.close()
 
-def remove_album_names(music_info):
+def remove_album_names(music_info,txt_pat):
 
-    removed_albums = []
+    changed_album_files = []
+    txt_name = "albums"
 
     for ID, info in music_info.items():
-        full_path = info['file_path']
-        path_to_file = os.path.dirname(full_path)
-        file_name = os.path.basename(full_path)
 
+        full_path = info['file_path']
+        path_to_file,file_name = os.path.dirname(full_path),os.path.basename(full_path)
         re_album = info['album']
-        re_album = r"^" + re_album + r"\s?-?_?\s?"
+        re_album = re_album + txt_pat
         match = re.search(re_album, file_name)
         if match:
             new_file_name = re.sub(re_album, '', file_name) #change file_name to one without pattern
             new_path = os.path.join(path_to_file, new_file_name)
             os.rename(full_path,new_path)
             print(f'"{file_name}" CHANGED TO "{new_file_name}"')
-            removed_albums.append(new_file_name)
+            changed_album_files.append(f'{file_name} -->\n{new_file_name}\n')
     try:
-        removed_albums_txt = open('removed_artists.txt', 'x')
+        removed_albums_txt = open(f'removed_{txt_name}.txt', 'x')
     except:
-        removed_albums_txt = open('removed_artists.txt', 'w')
+        removed_albums_txt = open(f'removed_{txt_name}.txt', 'w')
 
-    for l in removed_albums:
+    for l in changed_album_files:
         removed_albums_txt.write(f'{l}\n')
     
     removed_albums_txt.close()
 
-def remove_leading_numbers(music_info): #removes leading numbers from songs like "04 - song.flac" if it exists
+def remove_leading_numbers(music_info,n_pat1,n_pat2,n_pat3): #removes leading numbers from songs like "04 - song.flac" if it exists
 
     all_files = []
 
@@ -122,22 +136,31 @@ def remove_leading_numbers(music_info): #removes leading numbers from songs like
         full_path = info['file_path']
         path_to_file = os.path.dirname(full_path)
         file_name = os.path.basename(full_path)
-        match1 = re.search(re_pattern1, file_name)
-        match2 = re.search(re_pattern2, file_name)
+        match1 = re.search(n_pat1, file_name)
+        match2 = re.search(n_pat2, file_name)
+        match3 = re.search(n_pat3, file_name)
         if match1:
-            new_file_name = re.sub(re_pattern1, '', file_name) #change file_name to one without pattern
+            new_file_name = re.sub(n_pat1, '', file_name) #change file_name to one without pattern
             new_path = os.path.join(path_to_file, new_file_name)
             os.rename(full_path,new_path)
             print(f'"{file_name}" CHANGED TO "{new_file_name}"')
             all_files.append(new_file_name)
         elif match2:
-            new_file_name = re.sub(re_pattern2, '', file_name) #change file_name to one without pattern
+            new_file_name = re.sub(n_pat2, '', file_name) #change file_name to one without pattern
+            new_path = os.path.join(path_to_file, new_file_name)
+            os.rename(full_path,new_path)
+            print(f'"{file_name}" CHANGED TO "{new_file_name}"')
+            all_files.append(new_file_name)
+        elif match3:
+            new_file_name = re.sub(n_pat3, '', file_name) #change file_name to one without pattern
             new_path = os.path.join(path_to_file, new_file_name)
             os.rename(full_path,new_path)
             print(f'"{file_name}" CHANGED TO "{new_file_name}"')
             all_files.append(new_file_name)
         else:
             all_files.append(file_name)
+            
+    print(music_info)
     try:
         all_files_txt = open('all_files.txt', 'x')
     except:
@@ -148,22 +171,13 @@ def remove_leading_numbers(music_info): #removes leading numbers from songs like
     
     all_files_txt.close()
 
-    return None
-
 def main():
     #Tk().withdraw()  # Hide the main Tkinter window
     #print("Select the folder containing the music files and/or folders:")
     #path = askdirectory(title="Select Folder: ")
     path = "/Users/calebmueller/Desktop/test"
-    music_info = music_info(path)
-    if input("Remove leading numbers from files (Y/N): ") == "Y" or "y":
-        remove_leading_numbers(music_info)
-    else:
-        None
-    if input("Remove artist names from files (Y/N): ") == "Y" or "y":
-        remove_artist_names(music_info)
-    else:
-        None
+    music_info = get_music(path)
+    change_file_names(music_info)
 
     #for (path, directories, files) in os.walk(path):
         #for file in files:
