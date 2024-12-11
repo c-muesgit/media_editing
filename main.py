@@ -15,6 +15,10 @@ from mutagen.mp4 import MP4
 from mutagen.oggopus import OggOpus
 from mutagen.aac import AAC
 
+re_pattern1 = r"^[0-9]+\s?-\s?" #file needs to have "-" after number (spaces don't matter)
+re_pattern2 = r"^[0-9]+\.\s+" #file needs to have "." after number and any number of spaces
+#pattern 2 won't delete songs like "1998.flac" or "7 Years.flac"
+
 file_types = ['.m4a','.mp3','.flac','.aac','.wav','.opus']
 
 def get_music_files(input_folder): #makes dictionary of music files in folders and subfolders (gets path, artist, title)
@@ -80,10 +84,6 @@ def remove_artist_names(music_files): #removes artists names from beginning of f
     removed_artists_txt.close()
 
 def remove_leading_numbers(music_files): #removes leading numbers from songs like "04 - song.flac" if it exists
-
-    re_pattern1 = r"^[0-9]+\s?-\s?" #file needs to have "-" after number (spaces don't matter)
-    re_pattern2 = r"^[0-9]+\.\s+" #file needs to have "." after number and any number of spaces
-    #pattern 2 won't delete songs like "1998.flac" or "7 Years.flac"
 
     all_files = []
 
