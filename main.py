@@ -1,13 +1,8 @@
 import os
 import re
-from functools import reduce
-from datetime import datetime
-
 from tkinter import Tk
 from tkinter.filedialog import askdirectory
-
 import xml.etree.ElementTree as ET
-
 import mutagen
 from mutagen.easyid3 import EasyID3
 from mutagen.flac import FLAC
@@ -21,9 +16,9 @@ re_pattern2 = r"^[0-9]+\.\s+" #file needs to have "." after number and any numbe
 
 file_types = ['.m4a','.mp3','.flac','.aac','.wav','.opus']
 
-def get_music_files(input_folder): #makes dictionary of music files in folders and subfolders (gets path, artist, title)
+def music_info(input_folder): #makes dictionary of music files in folders and subfolders (gets path, artist, title)
 
-    music_files = {}
+    music_info = {}
     ID = 0
 
     if os.path.isfile('skipped.txt'):
@@ -50,24 +45,24 @@ def get_music_files(input_folder): #makes dictionary of music files in folders a
                     except:
                         print(f"Missing info for {file_path}")
 
-                    music_files[ID] = {'file_path':file_path}
+                    music_info[ID] = {'file_path':file_path}
 
                     if title:
-                        music_files[ID] = {'title': title}
+                        music_info[ID] = {'title': title}
                     #artist_name = get_artist(file_path)
                     if artist:
-                        music_files[ID] = {'artist': artist}
+                        music_info[ID] = {'artist': artist}
     
                     if album:
-                        music_files[ID] = {'album': album}
+                        music_info[ID] = {'album': album}
                     
-    return music_files
+    return music_info
 
-def remove_artist_names(music_files): #removes artists names from beginning of file if it exists 
+def remove_artist_names(music_info): #removes artists names from beginning of file if it exists 
 
     removed_artists = []
 
-    for ID, info in music_files.items():
+    for ID, info in music_info.items():
         full_path = info['file_path']
         path_to_file = os.path.dirname(full_path)
         file_name = os.path.basename(full_path)
@@ -91,11 +86,11 @@ def remove_artist_names(music_files): #removes artists names from beginning of f
     
     removed_artists_txt.close()
 
-def remove_album_names(music_files):
+def remove_album_names(music_info):
 
     removed_albums = []
 
-    for ID, info in music_files.items():
+    for ID, info in music_info.items():
         full_path = info['file_path']
         path_to_file = os.path.dirname(full_path)
         file_name = os.path.basename(full_path)
@@ -119,11 +114,11 @@ def remove_album_names(music_files):
     
     removed_albums_txt.close()
 
-def remove_leading_numbers(music_files): #removes leading numbers from songs like "04 - song.flac" if it exists
+def remove_leading_numbers(music_info): #removes leading numbers from songs like "04 - song.flac" if it exists
 
     all_files = []
 
-    for ID, info in music_files.items():
+    for ID, info in music_info.items():
         full_path = info['file_path']
         path_to_file = os.path.dirname(full_path)
         file_name = os.path.basename(full_path)
@@ -160,13 +155,13 @@ def main():
     #print("Select the folder containing the music files and/or folders:")
     #path = askdirectory(title="Select Folder: ")
     path = "/Users/calebmueller/Desktop/test"
-    music_files = get_music_files(path)
+    music_info = music_info(path)
     if input("Remove leading numbers from files (Y/N): ") == "Y" or "y":
-        remove_leading_numbers(music_files)
+        remove_leading_numbers(music_info)
     else:
         None
     if input("Remove artist names from files (Y/N): ") == "Y" or "y":
-        remove_artist_names(music_files)
+        remove_artist_names(music_info)
     else:
         None
 
