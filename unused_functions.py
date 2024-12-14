@@ -16,7 +16,7 @@ from mutagen.oggopus import OggOpus
 from mutagen.aac import AAC
 
 #unused functions
-def convert_m3u_to_xml(input_folder): #unused
+def convert_m3u_to_xml(input_folder,jellyfin_path): #unused
 
     m3u_files = []
     for (path, directories, files) in os.walk(input_folder):
@@ -32,7 +32,7 @@ def convert_m3u_to_xml(input_folder): #unused
                 ET.SubElement(playlist, "Added").text = datetime.now().strftime("%m/%d/%Y %H:%M:%S")
                 ET.SubElement(playlist, "LockData").text = "false"
                 ET.SubElement(playlist, "LocalTitle").text = playlist_name
-                ET.SubElement(playlist, "RunningTime").text = "366"
+                ET.SubElement(playlist, "RunningTime").text = ""
 
                 genres = ET.SubElement(playlist, "Genres")
                 ET.SubElement(genres, "Genre").text = "Alternative"
@@ -42,20 +42,13 @@ def convert_m3u_to_xml(input_folder): #unused
 
                 playlist_items_element = ET.SubElement(playlist, "PlaylistItems")
 
-                with open(m3u, 'r') as file:
+                with open(m3u, 'r', encoding='utf-8') as file:
                     for line in file:
                         folder = line.split('/')[0]
                         m3u_title = line.split('/')[1]
-                        pattern = re_pattern1
-                        match = re.search(pattern, m3u_title)
-                        if match:
-                            new_m3u_title = re.sub(pattern, '', m3u_title)
-                        else:
-                            new_m3u_title = m3u_title
-
-                        relative_path = f"{folder}/{new_m3u_title}"
+                        relative_path = f"{folder}/{m3u_title}"
                         playlist_item = ET.SubElement(playlist_items_element, "PlaylistItem")
-                        ET.SubElement(playlist_item, "Path").text = f"/data/music/{relative_path}"
+                        ET.SubElement(playlist_item, "Path").text = f"{jellyfin_path}/{relative_path}"
 
                 ET.SubElement(playlist, "Shares")
                 ET.SubElement(playlist, "PlaylistMediaType").text = "Audio"
@@ -66,11 +59,11 @@ def convert_m3u_to_xml(input_folder): #unused
                 os.makedirs(os.path.join(input_folder, 'XML Playlists', playlist_name),exist_ok=True)
                 output_folder = os.path.join(input_folder, 'XML Playlists', playlist_name)
                 xml_output_path = os.path.join(output_folder, 'playlist.xml')
-
                 tree.write(xml_output_path, encoding="utf-8", xml_declaration=True)
                 print(f"XML playlist generated at {xml_output_path}")
                 
         return None
+
 def get_artist(file_path): #unused
     
     try:
@@ -91,3 +84,7 @@ def get_artist(file_path): #unused
             return audio.get('artist', [None])[0]
     except Exception as e:
         print(f"Error reading {file_path}: {e}")
+
+input_folder = "C:/Users/Caleb/Desktop/Rachel_Music"
+jellyfin_path = "/data/music/rachels_music"
+convert_m3u_to_xml(input_folder,jellyfin_path)
