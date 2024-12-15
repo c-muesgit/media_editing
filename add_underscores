@@ -1,0 +1,53 @@
+import os
+import re
+from tkinter import Tk
+from tkinter.filedialog import askdirectory
+
+def rename_files(files):
+
+    print('1')
+    pattern = r'\s' #looks for empty spaces
+
+    for file in files:
+        file_name = os.path.basename(file)
+        print(file_name)
+        file_folder = os.path.dirname(file)
+        match = re.search(pattern, file_name)
+        print(match)
+        if match:
+            new_name = re.sub(pattern, '_', file_name)
+            try:
+                new_path = os.path.join(file_folder, new_name)
+                os.rename(file, new_path)
+            except:
+                print("couldn't rename file")
+
+
+def find_files(input):
+
+    files_list = []
+
+    for root, _, files in os.walk(input):
+        for file in files:
+            file_path = os.path.join(root, file)
+            files_list.append(file_path)
+
+    return(files_list)
+    
+def folder_process():
+    Tk().withdraw()  # Hide the main Tkinter window
+    print("Select the folder containing the files:")
+    input_folder = askdirectory(title="Select Input Folder")
+    if not input_folder:
+        print("No input folder selected. Exiting.")
+        exit()
+    input_name = os.path.basename(input_folder)
+
+    return input_folder, input_name
+
+def main():
+    input_folder, input_name = folder_process()
+    files = find_files(input_folder)
+    rename_files(files)
+
+main()
