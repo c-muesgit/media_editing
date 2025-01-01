@@ -1,0 +1,68 @@
+import os
+from mutagen.mp4 import MP4, MP4Cover
+from PIL import Image
+
+def delete_old_cover_art_files(directory):
+    for root, dirs, files in os.walk(directory):
+        for file in files:
+            if file.endswith("_cover.jpg"):
+                file_path = os.path.join(root, file)
+                os.remove(file_path)
+                print(f"Deleted old cover art file: {file_path}")
+
+def extract_and_convert_cover_art(file_path):
+    try:
+        audio = MP4(file_path)
+        cover_art = audio.tags['covr'][0]
+
+        # Save the cover art as a temporary file
+        temp_cover_path = os.path.splitext(file_path)[0] + '_temp_cover.png'
+        with open(temp_cover_path, 'wb') as img_file:
+            img_file.write(cover_art)
+
+        # Open and convert the image to JPG, then resize if necessary
+        img = Image.open(temp_cover_path)
+        img = img.convert('RGB')
+
+        if img.width > 200 or img.height > 200:
+            img = img.resize((200, 200))
+
+        # Save the resized image as a temporary JPG file
+        temp_jpg_path = os.path.splitext(file_path)[0] + '_temp_cover.jpg'
+        img.save(temp_jpg_path, 'JPEG')
+
+        # Clean up temporary PNG file
+        os.remove(temp_cover_path)
+
+        # Replace the embedded cover art with the resized JPG
+        with open(temp_jpg_path, 'rb') as jpg_file:
+            new_cover_art = MP4Cover(jpg_file.read(), imageformat=MP4Cover.FORMAT_JPEG)
+            audio.tags['covr'] = [new_cover_art]
+            audio.save()
+
+        # Clean up temporary JPG file
+        os.remove(temp_jpg_path)
+
+        return file_path
+
+    except Exception as e:
+        print(f"Error processing {file_path}: {e}")
+        return None
+
+def process_alac_files(directory):
+    # Delete old cover art files first
+    delete_old_cover_art_files(directory)
+
+    for root, dirs, files in os.walk(directory):
+        for file in files:
+            if file.endswith(".m4a"):
+                file_path = os.path.join(root, file)
+                result_path = extract_and_convert_cover_art(file_path)
+                if result_path:
+                    print(f"Updated cover art for {file_path}")
+                else:
+                    print(f"Failed to update cover art for {file_path}")
+
+# Set the directory containing your main folder of ALAC files
+main_directory = "C:/Users/Caleb/Music/Music"
+process_alac_files(main_directory)
