@@ -139,15 +139,17 @@ def analyze_audio_file(file_path, quick_mode=False):
         # Build result dict with only necessary fields based on quick_mode
         results = {
             "filename": os.path.basename(file_path),
-            "full_path": file_path,  # For plotting
+            "full_path": file_path,  # ✅ Ensure full_path is always included
             "file_size_MB": file_size_mb,
-            "sample_rate": audio_info.samplerate,  # Use original sample rate
+            "sample_rate": audio_info.samplerate,
             "bit_depth_estimation": bit_depth,
             "duration_analyzed": duration,
             "upper_freq_energy_ratio": upper_freq_energy,
             "highest_freq_energy_ratio": highest_freq_energy,
             "likely_lossless": is_likely_lossless
         }
+
+
         
         # Only include detailed analysis for normal mode
         if not quick_mode:
@@ -407,17 +409,24 @@ class SimpleLosslessDetectorGUI:
             self.progress_var.set("Analysis failed")
         else:
             # Display detailed result
-            lossless_status = "LIKELY LOSSLESS" if result["likely_lossless"] else "LIKELY LOSSY"
+            lossless_status = "LIKELY LOSSLESS" if result.get("likely_lossless", False) else "LIKELY LOSSY"
             self.results_text.insert(tk.END, f"File Analysis Result\n")
             self.results_text.insert(tk.END, f"------------------------------\n")
             self.results_text.insert(tk.END, f"File: {result['filename']}\n")
             self.results_text.insert(tk.END, f"Sample rate: {result['sample_rate']} Hz\n")
             self.results_text.insert(tk.END, f"Estimated bit depth: {result['bit_depth_estimation']}\n")
-            self.results_text.insert(tk.END, f"Duration: {result['duration']:.2f} seconds\n")
+            if "duration_analyzed" in result:
+                self.results_text.insert(tk.END, f"Duration: {result['duration_analyzed']:.2f} seconds\n")
+            else:
+                self.results_text.insert(tk.END, "Duration: Unknown (File may be too short)\n")
             self.results_text.insert(tk.END, f"Upper frequency energy ratio (>16kHz): {result['upper_freq_energy_ratio']:.6f}\n")
             self.results_text.insert(tk.END, f"Highest frequency energy ratio (>20kHz): {result['highest_freq_energy_ratio']:.6f}\n")
-            self.results_text.insert(tk.END, f"High frequency spectral flatness: {result['spectral_flatness_high_freq']:.6f}\n")
-            
+            spectral_flatness = result.get("spectral_flatness_high_freq", None)
+            if isinstance(spectral_flatness, (int, float)):  # Ensure it's a number before formatting
+                self.results_text.insert(tk.END, f"High frequency spectral flatness: {spectral_flatness:.6f}\n")
+            else:
+                self.results_text.insert(tk.END, "High frequency spectral flatness: N/A (Not available in quick mode)\n")
+
             if "silence_noise_level" in result:
                 self.results_text.insert(tk.END, f"Silent segments noise level: {result['silence_noise_level']:.6f}\n")
             
@@ -443,8 +452,12 @@ class SimpleLosslessDetectorGUI:
                 )
             
             # Display the spectral plot
-            self.display_plot(result["full_path"])
-            
+            file_path = result.get("full_path", None)
+            if file_path:
+                self.display_plot(file_path)
+            else:
+                self.results_text.insert(tk.END, "⚠️ No file path available for plotting.\n")
+
             # Update status
             self.progress_var.set(f"Analysis complete: {lossless_status}")
             
