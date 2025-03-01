@@ -1,0 +1,181 @@
+import os
+import numpy as np
+import librosa
+import matplotlib.pyplot as plt
+from scipy import signal
+import argparse
+
+def analyze_audio_file(file_path):
+    """
+    Analyze audio file to determine if it's likely lossless or lossy compressed.
+    
+    Parameters:
+    file_path (str): Path to the audio file
+    
+    Returns:
+    dict: Analysis results
+    """
+    try:
+        # Load the audio file
+        y, sr = librosa.load(file_path, sr=None, mono=True)
+        
+        # Get file info
+        duration = librosa.get_duration(y=y, sr=sr)
+        
+        # Get bit depth from the audio data
+        bit_depth = 16  # Default assumption
+        if y.dtype == np.float32:
+            # Need to check the original file format as librosa converts to float32
+            bit_depth = "float32 (converted by librosa)"
+        
+        # Calculate spectral features
+        spectral_rolloff = librosa.feature.spectral_rolloff(y=y, sr=sr)[0]
+        
+        # Frequency analysis
+        S = np.abs(librosa.stft(y))
+        fft_freqs = librosa.fft_frequencies(sr=sr)
+        
+        # Detect spectral gaps that might indicate lossy compression
+        # MP3 and other lossy formats often cut off high frequencies
+        upper_freq_energy = np.sum(S[fft_freqs > 16000]) / np.sum(S)
+        
+        # Analyze for MP3 compression artifacts (spectral gaps around 16kHz)
+        high_freq_band = S[(fft_freqs > 15000) & (fft_freqs < 20000)]
+        spectral_flatness_high = librosa.feature.spectral_flatness(S=high_freq_band)[0].mean()
+        
+        # Calculate noise profile in supposedly silent parts
+        # Lossy compression often adds noise in "silent" parts
+        silence_threshold = 0.0001
+        silent_segments = y[np.abs(y) < silence_threshold]
+        if len(silent_segments) > 0:
+            silence_noise = np.std(silent_segments)
+        else:
+            silence_noise = 0
+            
+        # Check for spectral "holes" - common in lossy compression
+        # Calculate the standard deviation of adjacent frequency bins
+        freq_diff = np.diff(np.mean(S, axis=1))
+        freq_variation = np.std(freq_diff)
+        
+        # Results
+        results = {
+            "filename": os.path.basename(file_path),
+            "sample_rate": sr,
+            "bit_depth_estimation": bit_depth,
+            "duration": duration,
+            "upper_freq_energy_ratio": upper_freq_energy,
+            "spectral_flatness_high_freq": spectral_flatness_high,
+            "silence_noise_level": silence_noise,
+            "frequency_variation": freq_variation,
+        }
+        
+        # Make determination based on analysis
+        is_likely_lossless = (
+            upper_freq_energy > 0.01 and  # Significant energy in upper frequencies
+            spectral_flatness_high > 0.3 and  # High frequency spectrum is relatively flat
+            silence_noise < 0.001 and  # Low noise in silent segments
+            freq_variation < 0.1  # Less variation between adjacent frequency bins
+        )
+        
+        results["likely_lossless"] = is_likely_lossless
+        
+        # Create the spectral plot for visual analysis
+        plt.figure(figsize=(12, 8))
+        
+        # Plot the spectrogram
+        plt.subplot(2, 1, 1)
+        librosa.display.specshow(librosa.amplitude_to_db(S, ref=np.max), y_axis='log', x_axis='time', sr=sr)
+        plt.colorbar(format='%+2.0f dB')
+        plt.title('Spectrogram')
+        
+        # Plot the spectral rolloff
+        plt.subplot(2, 1, 2)
+        times = librosa.times_like(spectral_rolloff)
+        plt.plot(times, spectral_rolloff)
+        plt.axhline(y=16000, color='r', linestyle='--', alpha=0.5, label='16kHz threshold')
+        plt.title('Spectral Rolloff')
+        plt.xlabel('Time (s)')
+        plt.ylabel('Frequency (Hz)')
+        plt.tight_layout()
+        
+        # Save the plot
+        plot_path = file_path + '_analysis.png'
+        plt.savefig(plot_path)
+        plt.close()
+        
+        results["spectral_plot"] = plot_path
+        
+        return results
+    
+    except Exception as e:
+        return {"error": str(e), "filename": os.path.basename(file_path)}
+
+def analyze_directory(directory_path, output_file=None):
+    """
+    Analyze all audio files in a directory
+    
+    Parameters:
+    directory_path (str): Path to directory containing audio files
+    output_file (str): Path to save CSV results (optional)
+    """
+    results = []
+    
+    audio_extensions = ['.wav', '.flac', '.aiff', '.aif', '.mp3', '.m4a', '.ogg', '.opus']
+    
+    for root, _, files in os.walk(directory_path):
+        for file in files:
+            if any(file.lower().endswith(ext) for ext in audio_extensions):
+                file_path = os.path.join(root, file)
+                print(f"Analyzing: {file_path}")
+                result = analyze_audio_file(file_path)
+                results.append(result)
+                
+                # Print summary
+                if "error" in result:
+                    print(f"Error analyzing {file}: {result['error']}")
+                else:
+                    lossless_status = "LIKELY LOSSLESS" if result["likely_lossless"] else "LIKELY LOSSY"
+                    print(f"File: {file}")
+                    print(f"Sample rate: {result['sample_rate']} Hz")
+                    print(f"Estimated bit depth: {result['bit_depth_estimation']}")
+                    print(f"Analysis result: {lossless_status}")
+                    print("-" * 50)
+    
+    # Save results to CSV if output file specified
+    if output_file and results:
+        import csv
+        with open(output_file, 'w', newline='') as f:
+            if results and "error" not in results[0]:
+                writer = csv.DictWriter(f, fieldnames=results[0].keys())
+                writer.writeheader()
+                writer.writerows(results)
+    
+    return results
+
+def main():
+    parser = argparse.ArgumentParser(description='Analyze audio files to detect if they are lossless or lossy compressed.')
+    parser.add_argument('path', help='Path to audio file or directory containing audio files')
+    parser.add_argument('--output', '-o', help='Output CSV file for batch processing')
+    
+    args = parser.parse_args()
+    
+    if os.path.isdir(args.path):
+        analyze_directory(args.path, args.output)
+    else:
+        result = analyze_audio_file(args.path)
+        if "error" in result:
+            print(f"Error analyzing file: {result['error']}")
+        else:
+            lossless_status = "LIKELY LOSSLESS" if result["likely_lossless"] else "LIKELY LOSSY"
+            print(f"File: {result['filename']}")
+            print(f"Sample rate: {result['sample_rate']} Hz")
+            print(f"Estimated bit depth: {result['bit_depth_estimation']}")
+            print(f"Upper frequency energy ratio: {result['upper_freq_energy_ratio']:.6f}")
+            print(f"High frequency spectral flatness: {result['spectral_flatness_high_freq']:.6f}")
+            print(f"Silent segments noise level: {result['silence_noise_level']:.6f}")
+            print(f"Frequency variation: {result['frequency_variation']:.6f}")
+            print(f"Analysis result: {lossless_status}")
+            print(f"Spectral plot saved to: {result['spectral_plot']}")
+
+if __name__ == "__main__":
+    main()
