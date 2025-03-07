@@ -5,7 +5,6 @@ import threading
 import tkinter as tk
 from tkinter import ttk, messagebox
 import signal
-import time
 import platform
 
 # Define the download folder to be in the current directory
@@ -281,7 +280,7 @@ class VideoDownloaderApp:
             if is_audio:
                 command = f'yt-dlp -f {format_code} -x --audio-format mp3 --newline --progress -o "{download_folder}/%(title)s.%(ext)s" "{url}"'
             else:
-                command = f'yt-dlp -f {format_code} --merge-output-format mp4 --newline --progress -o "{download_folder}/%(title)s.%(ext)s" "{url}"'
+                command = f'yt-dlp -f {format_code}+bestaudio --merge-output-format mp4 --newline --progress -o "{download_folder}/%(title)s.%(ext)s" "{url}"'
 
             if platform.system() == "Windows":
                 current_process = subprocess.Popen(
